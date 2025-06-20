@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Developer Intro Interactive Terminal</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      background: #121212;
+      font-family: monospace, monospace;
+      color: #a6fcd9;
+      overflow: hidden;
+      user-select: none;
+      position: relative;
+      transition: background 2s ease;
+    }
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .glow {
+      text-shadow:
+        0 0 4px #3afc75,
+        0 0 10px #3afc75,
+        0 0 20px #3afc75,
+        0 0 30px #00ff33;
+    }
+    #big-brackets {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      font-size: 15rem;
+      color: transparent;
+      -webkit-text-stroke: 1.5px #3afc75;
+      text-stroke: 1.5px #3afc75;
+      transform: translate(-50%, -50%) translateY(-40px);
+      opacity: 0;
+      transition: opacity 1s ease, transform 1s ease;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #big-brackets.visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    #left-bracket {
+      display: inline-block;
+      transition: opacity 0.5s ease;
+    }
+    #right-bracket {
+      display: inline-block;
+      position: relative;
+      transition:
+        transform 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+        font-size 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform, font-size;
+    }
+    #console {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 35vh;
+      background: #222;
+      box-shadow: inset 0 0 40px #0f0;
+      color: transparent;
+      -webkit-text-stroke: 0.8px #3afc75;
+      text-stroke: 0.8px #3afc75;
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+      line-height: 1.3;
+      font-family: monospace, monospace;
+      white-space: pre-wrap;
+      opacity: 0;
+      pointer-events: none;
+      user-select: text;
+      overflow-y: auto;
+      box-sizing: border-box;
+      z-index: 20;
+      border-top: 2px solid #3afc75;
+      filter: drop-shadow(0 0 2px #3afc75);
+      transition: opacity 1.5s ease;
+    }
+    #console.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .typing-line {
+      border-right: 2px solid #3afc75;
+      animation: blink 1s infinite step-end;
+      display: inline;
+    }
+    @keyframes blink {
+      50% { border-color: transparent; }
+    }
+    #tv-scanlines {
+      pointer-events: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1000;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255,255,255,0.03) 0,
+          rgba(255,255,255,0.03) 1px,
+          transparent 2px,
+          transparent 4px
+        );
+      animation: scanlines 6s linear infinite;
+      mix-blend-mode: screen;
+    }
+    @keyframes scanlines {
+      0% { background-position: 0 100%; }
+      100% { background-position: 0 -100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="big-brackets" aria-hidden="true" class="glow">
+      <span id="left-bracket">&lt;</span><span id="right-bracket">&gt;</span>
+    </div>
+    <pre id="console" aria-live="polite" aria-label="Developer console output" class="glow"></pre>
+  </div>
+  <div id="tv-scanlines"></div>
+
+  <script>
+    const bigBrackets = document.getElementById('big-brackets');
+    const leftBracket = document.getElementById('left-bracket');
+    const rightBracket = document.getElementById('right-bracket');
+    const consoleBox = document.getElementById('console');
+
+    let inputEnabled = false;
+    let currentInput = '';
+
+    // Filenames to fake-delete
+    const fakeFiles = [
+      'bin/bash', 'etc/passwd', 'usr/local/bin/python', 'home/user/.bashrc',
+      'var/log/syslog', 'tmp/cache.dat', 'boot/grub/grub.cfg', 'root/.ssh/authorized_keys',
+      'usr/share/doc/readme.txt', 'home/user/projects/main.py', 'opt/tools/setup.sh',
+      'lib/modules/kernel.ko', 'dev/null', 'etc/hosts', 'var/www/html/index.html'
+    ];
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function showAnimation() {
+      bigBrackets.classList.add('visible');
+      await wait(1500);
+
+      leftBracket.style.opacity = '0';
+      await wait(500);
+      leftBracket.style.display = 'none';
+
+      rightBracket.style.transform = 'translate(calc(-50vw + 30px), calc(40vh)) scale(0.6)';
+      rightBracket.style.fontSize = '3rem';
+
+      await wait(1200);
+
+      consoleBox.classList.add('visible');
+      await typeText('> py main.py', 0);
+      await wait(1500);
+      await printLines([
+        'Hello.',
+        'Im a developer from south korea.',
+        'I make minecraft plugins, with occasionally python projects.'
+      ]);
+      enableInput();
+    }
+
+    function typeText(text, i) {
+      return new Promise(resolve => {
+        if (i <= text.length) {
+          consoleBox.innerHTML = `<span class="typing-line">${text.slice(0, i)}</span>`;
+          setTimeout(() => typeText(text, i + 1).then(resolve), 100);
+        } else {
+          consoleBox.innerHTML = text;
+          resolve();
+        }
+      });
+    }
+
+    async function printLines(lines) {
+      for (const line of lines) {
+        consoleBox.innerHTML += '\n' + line;
+        await wait(700);
+      }
+    }
+
+    function enableInput() {
+      inputEnabled = true;
+      currentInput = '';
+      addPrompt();
+      window.addEventListener('keydown', handleKey);
+    }
+
+    function addPrompt() {
+      consoleBox.innerHTML += '\n> ';
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    function handleKey(e) {
+      if (!inputEnabled) return;
+      e.preventDefault();
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        currentInput += e.key;
+        updateInputLine();
+      } else if (e.key === 'Backspace') {
+        currentInput = currentInput.slice(0, -1);
+        updateInputLine();
+      } else if (e.key === 'Enter') {
+        executeCommand(currentInput.trim());
+        currentInput = '';
+      }
+    }
+
+    function updateInputLine() {
+      let lines = consoleBox.innerHTML.split('\n');
+      lines[lines.length - 1] = '> ' + escapeHtml(currentInput) + '<span class="typing-line"></span>';
+      consoleBox.innerHTML = lines.join('\n');
+      scrollToBottom();
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    async function executeCommand(cmd) {
+      if (!cmd) {
+        addPrompt();
+        return;
+      }
+      let lines = consoleBox.innerHTML.split('\n');
+      lines[lines.length - 1] = '> ' + escapeHtml(cmd);
+      consoleBox.innerHTML = lines.join('\n');
+      scrollToBottom();
+
+      await wait(300);
+
+      // Special rm command detection
+      if (isDangerousRm(cmd)) {
+        await printLines([
+          "rm: it is dangerous to operate recursively on '/'",
+          "rm: use --no-preserve-root to override this failsafe"
+        ]);
+      } else if (isNukeRm(cmd)) {
+        await runFakeRm();
+      } else {
+        // Other commands
+        switch(cmd.toLowerCase()) {
+          case 'help':
+            await printLines([
+              'Available commands:',
+              'help       - Show this help message',
+              'clear      - Clear the console',
+              'about      - Info about me',
+              'echo [txt] - Repeat text',
+              'date       - Show current date/time',
+              'exit       - Exit terminal',
+              'rm         - Remove files (try dangerous options!)'
+            ]);
+            break;
+          case 'clear':
+            consoleBox.innerHTML = '';
+            break;
+          case 'about':
+            await printLines([
+              "Hi! I'm a developer from South Korea.",
+              "I create Minecraft plugins and Python projects."
+            ]);
+            break;
+          case 'date':
+            await printLines([new Date().toString()]);
+            break;
+          case 'exit':
+            await printLines(["Bye! Closing terminal..."]);
+            disableInput();
+            break;
+          default:
+            if(cmd.startsWith('echo ')) {
+              await printLines([cmd.slice(5)]);
+            } else if(cmd.startsWith('rm ')) {
+              await printLines(['rm: invalid usage. Try "rm -rf /" for fun']);
+            } else {
+              await printLines(['bash: ' + cmd + ': command not found']);
+            }
+            break;
+        }
+      }
+      if(inputEnabled) addPrompt();
+    }
+
+    function disableInput() {
+      inputEnabled = false;
+      window.removeEventListener('keydown', handleKey);
+    }
+
+    function isDangerousRm(cmd) {
+      // Matches:
+      // rm -rf /
+      // rm -r -f /
+      // rm -f -r /
+      const patterns = [
+        /^rm\s+-rf\s+\/$/,
+        /^rm\s+-r\s+-f\s+\/$/,
+        /^rm\s+-f\s+-r\s+\/$/
+      ];
+      return patterns.some(p => p.test(cmd.trim()));
+    }
+
+    function isNukeRm(cmd) {
+      // Matches:
+      // rm -rf --no-preserve-root /
+      // rm -rf /*
+      // rm -rf --no-preserve-root /
+      const trimmed = cmd.trim();
+      return trimmed === 'rm -rf --no-preserve-root /' || trimmed === 'rm -rf /*';
+    }
+
+    async function runFakeRm() {
+      disableInput();
+      await printLines(["Removing files..."]);
+      let count = 0;
+      const interval = 10; // ms
+
+      return new Promise(resolve => {
+        const timer = setInterval(() => {
+          if(count >= 45) {
+            clearInterval(timer);
+            fadeToBlack();
+            resolve();
+            return;
+          }
+          const file = fakeFiles[Math.floor(Math.random() * fakeFiles.length)];
+          consoleBox.innerHTML += `\nremoved '${file}'`;
+          scrollToBottom();
+          count++;
+        }, interval);
+      });
+    }
+
+    function fadeToBlack() {
+      document.body.style.background = 'black';
+      consoleBox.style.opacity = '0';
+      bigBrackets.style.opacity = '0';
+      // Optionally hide scanlines or keep them?
+      document.getElementById('tv-scanlines').style.opacity = '0';
+
+      setTimeout(() => {
+        consoleBox.innerHTML += "\nSystem halted.";
+        consoleBox.style.opacity = '1';
+      }, 10000);
+    }
+
+    window.onload = showAnimation;
+  </script>
+</body>
+</html>
